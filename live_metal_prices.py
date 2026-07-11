@@ -217,6 +217,21 @@ def fetch_all_metal_live_prices():
                 change = latest - prev
                 pct_change = (change / prev) * 100
 
+                # Get the actual market timestamp of the latest trade/price
+                market_time_unix = None
+                try:
+                    ticker_obj = yf.Ticker(details["symbol"])
+                    market_time_unix = ticker_obj.info.get('regularMarketTime')
+                except Exception:
+                    pass
+                
+                if market_time_unix:
+                    # Convert UNIX timestamp to human readable datetime format
+                    fetch_time = datetime.fromtimestamp(market_time_unix).strftime("%b %d, %Y, %I:%M:%S %p")
+                else:
+                    # Fallback to the latest trading day from dataframe index
+                    fetch_time = df.index[-1].strftime("%b %d, %Y")
+
                 data[name] = {
                     "price": latest,
                     "change": change,
@@ -224,6 +239,7 @@ def fetch_all_metal_live_prices():
                     "high": df['High'].iloc[-1],
                     "low": df['Low'].iloc[-1],
                     "volume": df['Volume'].iloc[-1],
+                    "fetch_time": fetch_time,
                     "success": True
                 }
                 print(f"Fetched {name}: Price={latest}, Change={change}, %Change={pct_change:.2f}%")
@@ -313,8 +329,9 @@ for idx, (name, details) in enumerate(METAL_DETAILS.items()):
             change_class = "change-up" if change >= 0 else "change-down"
             change_symbol = "▲" if change >= 0 else "▼"
             
+            fetch_time_str = pdata.get("fetch_time", "Unknown")
             card_html = f"""
-            <div class="metal-card" style="--metal-color: {details['color']}; --metal-glow: {details['glow_color']};">
+            <div class="metal-card" title="Price fetched on: {fetch_time_str}" style="--metal-color: {details['color']}; --metal-glow: {details['glow_color']};">
                 <div class="metal-title">{details['emoji']} {name}</div>
                 <div class="metal-price">${price:,.2f}</div>
                 <div class="{change_class}">
